@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 64, "column": 0}, "map": {"version":3,"sources":["file:///home/ade/workspace/be-kasirfy/app/api/health/route.ts"],"sourcesContent":["import { NextResponse } from \"next/server\";\n\nexport async function GET() {\n  return NextResponse.json({ status: \"ok\", timestamp: new Date().toISOString() });\n}\n\n"],"names":["GET","json","status","timestamp","Date","toISOString"],"mappings":";;;;AAAA;;AAEO,eAAeA;IACpB,OAAO,gJAAY,CAACC,IAAI,CAAC;QAAEC,QAAQ;QAAMC,WAAW,IAAIC,OAAOC,WAAW;IAAG;AAC/E"}}]
+}
