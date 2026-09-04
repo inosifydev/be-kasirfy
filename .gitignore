@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-.next
+.next/
 
 # Environment
 .env
