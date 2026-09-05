@@ -16,6 +16,6 @@ export const GET = withAuth(async (_req: NextRequest, _ctx, user) => {
       is_active: user.is_active,
       created_at: user.created_at,
     },
-    path: "/api/v1/auth/me",
+    path: "/api/v1/auth/profile",
   });
 });
