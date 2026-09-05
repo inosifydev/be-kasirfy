@@ -4,21 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --schema=lib/db/schema.prisma && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate --schema=lib/db/schema.prisma"
+    "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "^2.109.0",
     "bcryptjs": "^3.0.3",
-    "dotenv": "^17.4.2",
     "jsonwebtoken": "^9.0.3",
-    "lucide-react": "^1.39.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-icons": "^5.7.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -30,7 +26,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
-    "prisma": "^7.10.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
