@@ -1,151 +1,86 @@
-const getSupabaseConfig = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase environment variables are missing");
-  }
-
-  return { supabaseUrl, supabaseKey };
-};
-
-const buildHeaders = (supabaseKey: string) => ({
-  apikey: supabaseKey,
-  Authorization: `Bearer ${supabaseKey}`,
-  "Content-Type": "application/json",
-});
-
-const parseJson = async (response: Response) => {
-  const text = await response.text();
-
-  return text ? JSON.parse(text) : null;
-};
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const orderRepository = {
   async findMany() {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { data, error } = await supabaseAdmin
+      .from("tb_transaksi")
+      .select(
+        "*, tb_user:id_user (id_user, username, nama_lengkap, email), tb_detail_transaksi (*, tb_barang:id_barang (id_barang, nama_barang, harga))"
+      )
+      .order("tanggal_transaksi", { ascending: false });
 
-    const url =
-      `${supabaseUrl}/rest/v1/orders` +
-      `?select=id,userId,total,status,createdAt,updatedAt` +
-      `&order=createdAt.desc`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(supabaseKey),
-      cache: "no-store",
-    });
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to get orders");
+    if (error) {
+      throw new Error(error.message);
     }
 
     return data ?? [];
   },
 
   async findById(id: string) {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { data, error } = await supabaseAdmin
+      .from("tb_transaksi")
+      .select(
+        "*, tb_user:id_user (id_user, username, nama_lengkap, email), tb_detail_transaksi (*, tb_barang:id_barang (id_barang, nama_barang, harga))"
+      )
+      .eq("id_transaksi", id)
+      .maybeSingle();
 
-    const url =
-      `${supabaseUrl}/rest/v1/orders` +
-      `?select=id,userId,total,status,createdAt,updatedAt` +
-      `&id=eq.${encodeURIComponent(id)}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(supabaseKey),
-      cache: "no-store",
-    });
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to get order");
+    if (error) {
+      throw new Error(error.message);
     }
 
-    return Array.isArray(data) ? data[0] ?? null : data ?? null;
+    return data;
   },
 
   async findUsers() {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { data, error } = await supabaseAdmin
+      .from("tb_user")
+      .select("id_user, username, nama_lengkap, email")
+      .order("created_at", { ascending: false });
 
-    const url = `${supabaseUrl}/rest/v1/users?select=id,name,email`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(supabaseKey),
-      cache: "no-store",
-    });
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to get users");
+    if (error) {
+      throw new Error(error.message);
     }
 
     return data ?? [];
   },
 
   async findUserById(userId: string) {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { data, error } = await supabaseAdmin
+      .from("tb_user")
+      .select("id_user, username, nama_lengkap, email")
+      .eq("id_user", userId)
+      .maybeSingle();
 
-    const url =
-      `${supabaseUrl}/rest/v1/users` +
-      `?select=id,name,email` +
-      `&id=eq.${encodeURIComponent(userId)}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(supabaseKey),
-      cache: "no-store",
-    });
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to get user");
+    if (error) {
+      throw new Error(error.message);
     }
 
-    return Array.isArray(data) ? data[0] ?? null : data ?? null;
+    return data;
   },
 
   async updateById(id: string, payload: Record<string, unknown>) {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { data, error } = await supabaseAdmin
+      .from("tb_transaksi")
+      .update(payload)
+      .eq("id_transaksi", id)
+      .select(
+        "*, tb_user:id_user (id_user, username, nama_lengkap, email), tb_detail_transaksi (*, tb_barang:id_barang (id_barang, nama_barang, harga))"
+      )
+      .single();
 
-    const url = `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`;
-
-    const response = await fetch(url, {
-      method: "PATCH",
-      headers: buildHeaders(supabaseKey),
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-
-    const data = await parseJson(response);
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to update order");
+    if (error) {
+      throw new Error(error.message);
     }
 
-    return Array.isArray(data) ? data[0] ?? null : data ?? null;
+    return data;
   },
 
   async deleteById(id: string) {
-    const { supabaseUrl, supabaseKey } = getSupabaseConfig();
+    const { error } = await supabaseAdmin.from("tb_transaksi").delete().eq("id_transaksi", id);
 
-    const url = `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`;
-
-    const response = await fetch(url, {
-      method: "DELETE",
-      headers: buildHeaders(supabaseKey),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const data = await parseJson(response);
-      throw new Error(data?.message || "Failed to delete order");
+    if (error) {
+      throw new Error(error.message);
     }
 
     return true;

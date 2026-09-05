@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrders } from "@/services/order.service";
 
+//get data order
 export async function GET() {
   try {
     const data = await getOrders();
