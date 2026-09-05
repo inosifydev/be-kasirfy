@@ -1,77 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
-import { login } from "@/services/auth.service";
+import { apiHandler } from "@/lib/api/handler";
+import { success } from "@/lib/api/response";
+import { http } from "@/lib/api/http";
+import { json } from "@/lib/api/request";
+import { createClient } from "@/lib/supabase/server";
+import type { LoginRequest } from "@/types/auth";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const identifier = typeof body?.username === "string" ? body.username : body?.email;
-    const password = typeof body?.password === "string" ? body.password : "";
+export const POST = apiHandler(async (request) => {
+  const body = await json<LoginRequest>(request);
 
-    if (!identifier || !password) {
-      return NextResponse.json(
-        {
-          success: false,
-          status: 400,
-          message: "Username/email dan password wajib diisi",
-          errors: { code: "VALIDATION_ERROR" },
-        },
-        { status: 400 }
-      );
-    }
+  const { email, password } = body;
 
-    const result = await login(String(identifier), String(password));
-
-    return NextResponse.json(
-      {
-        success: true,
-        status: 200,
-        message: "Login berhasil",
-        data: {
-          user: result.user,
-          access_token: result.accessToken,
-          refresh_token: result.refreshToken,
-        },
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Terjadi kesalahan saat login";
-
-    if (message === "INVALID_CREDENTIALS") {
-      return NextResponse.json(
-        {
-          success: false,
-          status: 401,
-          message: "Username atau password salah",
-          errors: { code: "INVALID_CREDENTIALS" },
-        },
-        { status: 401 }
-      );
-    }
-
-    if (message === "ACCOUNT_INACTIVE") {
-      return NextResponse.json(
-        {
-          success: false,
-          status: 403,
-          message: "Akun Anda tidak aktif",
-          errors: { code: "ACCOUNT_INACTIVE" },
-        },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        status: 500,
-        message: "Terjadi kesalahan saat login",
-        errors: {
-          code: "INTERNAL_SERVER_ERROR",
-          details: error instanceof Error ? error.message : null,
-        },
-      },
-      { status: 500 }
+  if (!email || !password) {
+    throw http.badRequest(
+      "Email dan password wajib diisi",
+      "VALIDATION_ERROR"
     );
   }
-}
+
+  const supabase = await createClient();
+
+  const { data, error } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+  if (error) {
+    throw http.unauthorized(
+      "Email atau password salah",
+      "INVALID_CREDENTIALS"
+    );
+  }
+
+  return success(
+    {
+      user: data.user,
+    },
+    "Login berhasil"
+  );
+});
