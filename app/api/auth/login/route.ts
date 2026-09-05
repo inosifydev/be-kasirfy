@@ -41,6 +41,13 @@ export async function POST(request: Request) {
 
     const result = await login(String(identifier), String(password));
 
+    const headers = {
+      "x-access-token": String(result.accessToken),
+      "x-refresh-token": String(result.refreshToken),
+      // expose custom headers to browsers
+      "access-control-expose-headers": "x-access-token, x-refresh-token",
+    };
+
     return NextResponse.json(
       {
         success: true,
@@ -48,11 +55,9 @@ export async function POST(request: Request) {
         message: "Login berhasil",
         data: {
           user: result.user,
-          access_token: result.accessToken,
-          refresh_token: result.refreshToken,
         },
       },
-      { status: 200 }
+      { status: 200, headers }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Terjadi kesalahan saat login";
