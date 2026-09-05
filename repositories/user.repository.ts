@@ -1,7 +1,42 @@
-import { prisma } from "@/lib/db/prisma";
+import { supabase } from "@/lib/supabase";
 
 export const userRepository = {
-  findMany: () => prisma.user.findMany(),
-  findById: (id: string) => prisma.user.findUnique({ where: { id } }),
+  async findMany() {
+    const { data, error } = await supabase.from("users").select("*");
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data ?? [];
+  },
+
+  async findById(id: string) {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  },
+
+  async findByEmail(email: string) {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, name, email, password")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  },
 };
 

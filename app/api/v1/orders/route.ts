@@ -1,14 +1,25 @@
-import { NextRequest } from "next/server";
-import { ok, created } from "@/lib/http/response";
+import { NextResponse } from "next/server";
+import { getOrders } from "@/services/order.service";
 
-export async function GET(req: NextRequest) {
-  // TODO: getOrders()
-  return ok([]);
+export async function GET() {
+  try {
+    const data = await getOrders();
+
+    return NextResponse.json({
+      success: true,
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+
+    return NextResponse.json(
+      {
+        success: false,
+        message,
+      },
+      { status: 500 }
+    );
+  }
 }
-
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  // TODO: createOrder(body)
-  return created(body);
-}
-

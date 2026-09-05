@@ -1,31 +1,95 @@
-import { NextRequest } from "next/server";
-import { ok, noContent } from "@/lib/http/response";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  badRequest,
+  noContent,
+  notFound,
+  ok,
+} from "@/lib/http/response";
+import { deleteOrder, getOrderById, updateOrder } from "@/services/order.service";
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  // TODO: getOrderById(id)
-  return ok({ id });
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return badRequest("Order id is required");
+    }
+
+    const data = await getOrderById(id);
+    return ok(data);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch order";
+
+    if (message.toLowerCase().includes("not found")) {
+      return notFound(message);
+    }
+
+    return NextResponse.json(
+      { success: false, message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const body = await req.json();
-  // TODO: updateOrder(id, body)
-  return ok({ id, ...body });
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return badRequest("Order id is required");
+    }
+
+    const body = await req.json();
+    const data = await updateOrder(id, body);
+
+    return ok(data, "Order updated");
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update order";
+
+    if (message.toLowerCase().includes("not found")) {
+      return notFound(message);
+    }
+
+    return NextResponse.json(
+      { success: false, message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  // TODO: deleteOrder(id)
-  return noContent();
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return badRequest("Order id is required");
+    }
+
+    await deleteOrder(id);
+    return noContent();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to delete order";
+
+    if (message.toLowerCase().includes("not found")) {
+      return notFound(message);
+    }
+
+    return NextResponse.json(
+      { success: false, message },
+      { status: 500 }
+    );
+  }
 }
 
