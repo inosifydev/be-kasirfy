@@ -1,8 +1,9 @@
 // app/api/v1/order/route.ts
 import { NextRequest } from "next/server";
-import { badRequest, internalServerError, ok, created } from "@/lib/http/response";
+import { badRequest, internalServerError, unauthorized, ok, created } from "@/lib/http/response";
 import { withAuth } from "@/lib/middleware/withAuth";
 import { getOrders, createOrder } from "@/services/order.service";
+import { verifyAccessToken } from "@/lib/auth/jwt"; // sesuaikan path aslinya
 
 const JENIS_VALID = ["tunai", "transfer", "qris", "kartu_debit", "kartu_kredit"];
 
@@ -56,7 +57,12 @@ export const POST = withAuth(async (req: NextRequest) => {
       }
     }
 
-    const data = await createOrder(body, id_user: idUser);
+    const data = await createOrder({
+      jenis_pembayaran: body.jenis_pembayaran,
+      dibayar: body.dibayar,
+      items: body.items,
+      id_user: idUser,
+    });
     return created(data, "Order berhasil dibuat", req.nextUrl.pathname);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create order";
