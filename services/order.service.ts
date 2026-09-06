@@ -1,105 +1,116 @@
-import { orderRepository } from "@/repositories/order.repository";
+import { orderRepository, orderDetailRepository } from "@/repositories/order.repository";
+import { barangRepository } from "@/repositories/barang.repository";
 
-type OrderItemDetail = {
-  id_detail_transaksi?: string;
-  id_barang?: string | null;
-  jumlah?: number | null;
-  harga_satuan?: number | null;
-  subtotal?: number | null;
-  tb_barang?: {
-    id_barang?: string | null;
-    nama_barang?: string | null;
-    harga?: number | null;
-  } | null;
+type CreateOrderInput = {
+  id_user?: string;
+  jenis_pembayaran: string;
+  dibayar: number;
+  status_pembayaran?: string;
+  items: Array<{ id_barang: string; jumlah: number }>;
 };
 
-type OrderRow = {
-  id_transaksi: string;
-  id_user?: string | null;
-  tanggal_transaksi?: string | null;
-  total_harga?: number | null;
-  status?: string | null;
-  tb_user?: {
-    id_user?: string | null;
-    username?: string | null;
-    nama_lengkap?: string | null;
-    email?: string | null;
-  } | null;
-  tb_detail_transaksi?: OrderItemDetail[] | null;
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ["diproses", "dibatalkan"],
+  diproses: ["selesai", "dibatalkan"],
+  selesai: [],
+  dibatalkan: [],
 };
-
-const mapOrderWithUser = (order: OrderRow) => ({
-  id: order.id_transaksi,
-  id_user: order.id_user,
-  tanggal: order.tanggal_transaksi,
-  total_harga: order.total_harga,
-  status: order.status ?? "selesai",
-  user: order.tb_user
-    ? {
-        id: order.tb_user.id_user,
-        name: order.tb_user.nama_lengkap ?? order.tb_user.username,
-        email: order.tb_user.email,
-      }
-    : null,
-  items: (order.tb_detail_transaksi ?? []).map((item) => ({
-    id_detail_transaksi: item.id_detail_transaksi,
-    id_barang: item.id_barang,
-    jumlah: item.jumlah,
-    harga_satuan: item.harga_satuan,
-    subtotal: item.subtotal,
-    barang: item.tb_barang
-      ? {
-          id_barang: item.tb_barang.id_barang,
-          nama_barang: item.tb_barang.nama_barang,
-          harga: item.tb_barang.harga,
-        }
-      : null,
-  })),
-});
 
 export async function getOrders() {
-  const orders = await orderRepository.findMany();
-  return orders.map((order: OrderRow) => mapOrderWithUser(order));
+  return orderRepository.findMany();
 }
 
 export async function getOrderById(id: string) {
-  const order = await orderRepository.findById(id);
-
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  return mapOrderWithUser(order as OrderRow);
+  const data = await orderRepository.findById(id);
+  if (!data) throw new Error("ORDER_NOT_FOUND");
+  return data;
 }
 
-export async function updateOrder(id: string, input: Record<string, unknown>) {
-  const existingOrder = await orderRepository.findById(id);
-
-  if (!existingOrder) {
-    throw new Error("Order not found");
+export async function createOrder(input: CreateOrderInput) {
+  if (!input.items || input.items.length === 0) {
+    throw new Error("ITEMS_REQUIRED");
   }
 
-  const payload = {
-    ...input,
-  };
+  // 1. Ambil harga & cek stok tiap barang dari DB (bukan dari client)
+  let totalHarga = 0;
+  const detailRows: Array<{ id_barang: string; jumlah: number; harga_satuan: number; subtotal: number }> = [];
 
-  const order = await orderRepository.updateById(id, payload);
+  for (const item of input.items) {
+    const barang = await barangRepository.findById(item.id_barang);
+    if (!barang) throw new Error(`BARANG_NOT_FOUND: ${item.id_barang}`);
+    if (barang.stok < item.jumlah) throw new Error(`STOK_TIDAK_CUKUP: ${barang.nama_barang}`);
 
-  if (!order) {
-    throw new Error("Order not found after update");
+    const subtotal = barang.harga * item.jumlah;
+    totalHarga += subtotal;
+
+    detailRows.push({
+      id_barang: item.id_barang,
+      jumlah: item.jumlah,
+      harga_satuan: barang.harga,
+      subtotal, 
+    });
   }
 
-  return mapOrderWithUser(order as OrderRow);
+  // 2. Validasi pembayaran tunai harus cukup
+  if (input.jenis_pembayaran === "tunai" && input.dibayar < totalHarga) {
+    const kurang = totalHarga - input.dibayar;
+    throw new Error(`PEMBAYARAN_KURANG:${totalHarga}:${input.dibayar}:${kurang}`);
+  }
+
+  const statusPembayaran = input.status_pembayaran ?? (input.dibayar >= totalHarga ? "lunas" : "belum_lunas");
+
+  // 3. Insert header transaksi
+  const transaksi = await orderRepository.create({
+    id_user: input.id_user,
+    total_harga: totalHarga,
+    jenis_pembayaran: input.jenis_pembayaran,
+    dibayar: input.dibayar,
+    status_pembayaran: statusPembayaran,
+    status: "selesai",
+  });
+
+  try {
+    // 4. Insert detail transaksi
+    await orderDetailRepository.insertMany(
+      detailRows.map((d) => ({ ...d, id_transaksi: transaksi.id_transaksi }))
+    );
+
+    // 5. Kurangi stok tiap barang
+    for (const d of detailRows) {
+      await barangRepository.decrementStok(d.id_barang, d.jumlah);
+    }
+  } catch (err) {
+    // Rollback manual: kalau detail/stok gagal, hapus transaksi yang sudah terlanjur dibuat
+    await orderRepository.deleteById(transaksi.id_transaksi);
+    throw err;
+  }
+
+  return orderRepository.findById(transaksi.id_transaksi);
+}
+
+export async function updateOrderStatus(id: string, newStatus: string) {
+  const existing = await orderRepository.findById(id);
+  if (!existing) throw new Error("ORDER_NOT_FOUND");
+
+  const allowedNext = STATUS_TRANSITIONS[existing.status] ?? [];
+  if (!allowedNext.includes(newStatus)) {
+    throw new Error(`INVALID_STATUS_TRANSITION: ${existing.status} -> ${newStatus}`);
+  }
+
+  if (newStatus === "dibatalkan") {
+    const details = await orderDetailRepository.findByTransaksiId(id);
+    for (const item of details) {
+      if (item.id_barang) {
+        await barangRepository.incrementStok(item.id_barang, item.jumlah);
+      }
+    }
+  }
+
+  return orderRepository.updateById(id, { status: newStatus });
 }
 
 export async function deleteOrder(id: string) {
-  const existingOrder = await orderRepository.findById(id);
-
-  if (!existingOrder) {
-    throw new Error("Order not found");
-  }
-
-  await orderRepository.deleteById(id);
-  return true;
+  const existing = await orderRepository.findById(id);
+  if (!existing) throw new Error("ORDER_NOT_FOUND");
+  return orderRepository.deleteById(id);
 }
-

@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import {
   badRequest,
   internalServerError,
-  noContent,
   notFound,
   ok,
 } from "@/lib/http/response";
@@ -72,8 +71,8 @@ export const DELETE = withAuth(async (
       return badRequest("User id is required");
     }
 
-    await deleteUser(id);
-    return noContent();
+    const result = await deleteUser(id);
+    return ok(result, "User deactivated");
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to delete user";

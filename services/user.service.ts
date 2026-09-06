@@ -97,7 +97,23 @@ export async function deleteUser(id: string) {
     throw new Error("User not found");
   }
 
-  await userRepository.deleteById(id);
-  return true;
+  // Soft-delete: mark user as inactive instead of removing the row
+  const user = await userRepository.updateById(id, { is_active: false });
+
+  return {
+    id_user: user.id_user,
+    username: user.username,
+    nama_lengkap: user.nama_lengkap,
+    email: user.email,
+    no_hp: user.no_hp,
+    is_active: user.is_active,
+    created_at: user.created_at,
+    role: user.tb_role
+      ? {
+          id_role: user.tb_role.id_role,
+          nama_role: user.tb_role.nama_role,
+        }
+      : null,
+  };
 }
 

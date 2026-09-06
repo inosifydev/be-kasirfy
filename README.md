@@ -7,77 +7,52 @@ Disesuaikan dengan struktur project kamu yang sudah ada (`app/`, `lib/`, `types/
 ---
 
 ## 🗂️ Struktur Folder Target
-
-    ```text
-    project-backend/
-    ├── app/
-    │   └── api/
-    │       ├── v1/                        # Versioning API dari awal
-    │       │   ├── auth/
-    │       │   │   ├── login/route.ts
-    │       │   │   ├── register/route.ts
-    │       │   │   └── refresh/route.ts
-    │       │   ├── users/
-    │       │   │   ├── route.ts           # GET (list), POST (create)
-    │       │   │   └── [id]/route.ts      # GET, PUT, DELETE by id
-    │       │   └── orders/
-    │       │       ├── route.ts
-    │       │       └── [id]/route.ts
-    │       └── health/route.ts            # Health check endpoint (buat monitoring/uptime)
-    │
-    ├── lib/
-    │   ├── db/
-    │   │   ├── prisma.ts                  # Singleton Prisma Client (wajib di serverless!)
-    │   │   └── schema.prisma              # atau di root, tergantung ORM
-    │   ├── auth/
-    │   │   ├── jwt.ts                     # sign/verify token
-    │   │   ├── password.ts                # hash/compare (bcrypt/argon2)
-    │   │   └── guard.ts                   # helper cek auth di route handler
-    │   ├── http/
-    │   │   ├── response.ts                # helper standar response sukses/error
-    │   │   └── errors.ts                  # custom Error classes (NotFoundError, ValidationError, dst)
-    │   ├── validators/                    # Zod/Yup schema per resource
-    │   │   ├── user.schema.ts
-    │   │   └── order.schema.ts
-    │   ├── middleware/
-    │   │   ├── cors.ts                    # konfigurasi CORS ke domain frontend
-    │   │   ├── rateLimit.ts
-    │   │   └── withAuth.ts                # wrapper HOF untuk proteksi route
-    │   └── utils/
-    │       ├── logger.ts
-    │       └── date.ts
-    │
-    ├── services/                          # Business logic, dipanggil oleh route handler
-    │   ├── auth.service.ts
-    │   ├── user.service.ts
-    │   └── order.service.ts
-    │
-    ├── repositories/                      # Query DB spesifik per entity (opsional, kalau tim besar)
-    │   ├── user.repository.ts
-    │   └── order.repository.ts
-    │
-    ├── types/
-    │   ├── api.d.ts                       # tipe request/response umum
-    │   ├── user.d.ts
-    │   └── order.d.ts
-    │
-    ├── config/
-    │   ├── env.ts                         # validasi & export env var (pakai zod)
-    │   └── constants.ts
-    │
-    ├── middleware.ts                      # Next.js middleware (auth check, CORS global, logging)
-    ├── public/
-    ├── AGENTS.md
-    ├── CLAUDE.md
-    ├── README.md
-    ├── eslint.config.mjs
-    ├── next.config.ts
-    ├── next-env.d.ts
-    ├── postcss.config.mjs
-    ├── tsconfig.json
-    ├── package.json
-    └── .env.example
-    ```
+    src/
+      ├── app/
+      │   └── api/
+      │       └── v1/
+      │           ├── auth/
+      │           │   ├── login/
+      │           │   │   └── route.ts
+      │           │   ├── refresh/
+      │           │   │   └── route.ts
+      │           │   └── logout/
+      │           │       └── route.ts
+      │           ├── barang/
+      │           │   ├── route.ts              # GET (list), POST (create)
+      │           │   └── [id]/
+      │           │       ├── route.ts          # GET, PATCH, DELETE
+      │           │       └── restore/
+      │           │           └── route.ts      # PATCH restore
+      │           └── order/
+      │               ├── route.ts              # GET (list), POST (create)
+      │               └── [id]/
+      │                   └── route.ts          # GET, PATCH, DELETE
+      │
+      ├── services/
+      │   ├── auth.service.ts
+      │   ├── barang.service.ts
+      │   └── order.service.ts
+      │
+      ├── repositories/
+      │   ├── barang.repository.ts
+      │   └── order.repository.ts
+      │
+      ├── schemas/                              # Zod validation schemas
+      │   ├── auth.schema.ts
+      │   ├── barang.schema.ts
+      │   └── order.schema.ts
+      │
+      ├── lib/
+      │   ├── supabase.ts                       # supabaseAdmin client
+      │   ├── http/
+      │   │   └── response.ts                   # ok, badRequest, notFound, dst
+      │   └── auth/
+      │       └── withAuth.ts                   # middleware auth
+      │
+      └── types/
+          ├── barang.type.ts
+          └── order.type.ts
 
 > `postcss.config.mjs` dan `public/` sebenarnya sisa boilerplate Next.js untuk frontend — kalau project ini murni backend/API, boleh dihapus. Kalau masih ada halaman dokumentasi API (Swagger UI dsb) yang di-render, biarkan saja.
 
