@@ -29,8 +29,12 @@ export const POST = withAuth(async (req: NextRequest) => {
       return unauthorized("Sesi tidak valid", null, req.nextUrl.pathname);
     }
    
-    const payload = verifyAccessToken(accessToken); // fungsi verifikasi JWT kamu
-    const idUser = payload.id_user; // sesuaikan nama field di JWT payload kamu
+    const payload = verifyAccessToken(accessToken);
+    if (!payload) {
+      return unauthorized("Token tidak valid atau sudah kadaluarsa", null, req.nextUrl.pathname);
+    }
+
+    const idUser = payload.id_user;
 
     if (body.id_user !== undefined && typeof body.id_user !== "string") {
       return badRequest("id_user tidak valid", null, req.nextUrl.pathname);
