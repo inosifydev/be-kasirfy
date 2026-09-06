@@ -32,6 +32,10 @@ export const POST = withAuth(async (req: NextRequest) => {
     }
 
     const payload = verifyAccessToken(accessToken);
+    if (!payload) {
+      return unauthorized("Token tidak valid atau sudah kadaluarsa", null, req.nextUrl.pathname);
+    }
+
     const idUser = payload.id_user;
 
     // Validasi body — id_user TIDAK divalidasi karena tidak dipakai dari body
