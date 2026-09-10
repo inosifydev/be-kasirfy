@@ -1,19 +1,44 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import { forbidden, unauthorized } from "@/lib/http/response";
 import { tokenBlacklistRepository } from "@/repositories/token-blacklist.repository";
 import { userRepository } from "@/repositories/user.repository";
 import { hasPermission } from "@/services/permission.service";
 
-type Handler = (req: NextRequest, ctx: any, user: any) => Promise<Response>;
+/**
+ * User yang diteruskan ke handler setelah lolos autentikasi.
+ * Diambil dari return type asli userRepository.findById, jadi
+ * otomatis ikut berubah kalau shape User di repository berubah.
+ */
+type AuthenticatedUser = NonNullable<
+  Awaited<ReturnType<typeof userRepository.findById>>
+>;
+
+/**
+ * Context bawaan Next.js route handler (mis. { params: { id: string } }).
+ * Pakai generic supaya tiap route bisa nentuin bentuk params-nya sendiri,
+ * tapi tetap type-safe (tidak jatuh ke any).
+ */
+type RouteContext<TParams = Record<string, string>> = {
+  params: Promise<TParams>;
+};
+
+type Handler<TParams = Record<string, string>> = (
+  req: NextRequest,
+  ctx: RouteContext<TParams>,
+  user: AuthenticatedUser
+) => Promise<Response>;
 
 type AuthOptions = {
   module?: string;
   action?: string;
 };
 
-export function withAuth(handler: Handler, options: AuthOptions = {}) {
-  return async (req: NextRequest, ctx: any) => {
+export function withAuth<TParams = Record<string, string>>(
+  handler: Handler<TParams>,
+  options: AuthOptions = {}
+) {
+  return async (req: NextRequest, ctx: RouteContext<TParams>): Promise<Response> => {
     const authorization = req.headers.get("authorization") ?? "";
     const cookieToken = req.cookies.get("access_token")?.value ?? null;
     const token = authorization.startsWith("Bearer ")
@@ -58,4 +83,3 @@ export function withAuth(handler: Handler, options: AuthOptions = {}) {
     });
   };
 }
-

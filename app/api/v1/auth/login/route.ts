@@ -33,21 +33,24 @@ export async function POST(req: NextRequest) {
       path: req.nextUrl.pathname,
     });
     const isSecure = process.env.NODE_ENV === 'production';
+
     response.cookies.set('access_token', result.accessToken, {
       httpOnly: true,
       secure: isSecure,
-      sameSite: 'lax',
+      sameSite: isSecure ? 'none' : 'lax', // 'none' wajib untuk cross-site production
       path: '/',
       maxAge: 60 * 15,
     });
+
     response.cookies.set('refresh_token', result.refreshToken, {
       httpOnly: true,
       secure: isSecure,
-      sameSite: 'lax',
-      path: '/',
+      sameSite: isSecure ? 'none' : 'lax',
+      path: '/api/v1/auth', // persempit dari '/' — cuma terkirim ke endpoint auth
       maxAge: 60 * 60 * 24 * 7,
     });
     return response;
+    
   } catch (error) {
     console.error('LOGIN_ERROR', error);
     if (error instanceof Error && error.message === 'INVALID_CREDENTIALS') {
