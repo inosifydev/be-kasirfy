@@ -4,24 +4,35 @@ import { badRequest, errorResponse, successResponse, unauthorized } from '@/lib/
 import { login } from '@/services/auth.service';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username atau email wajib diisi').optional(),
-  email: z.string().email('Format email tidak valid').optional(),
+  username: z.string().trim().min(1, 'Username atau email wajib diisi').optional(),
+  email: z.string().trim().email('Format email tidak valid').optional(),
   password: z.string().min(1, 'Password wajib diisi'),
 });
 
 export async function POST(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  const isProduction = process.env.NODE_ENV === 'production';
+
   try {
-    const body = await req.json();
+    // Body kosong / bukan JSON => 400, bukan 500
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return badRequest('Body request tidak valid', null, path);
+    }
+
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? 'Input tidak valid';
-      return badRequest(message, parsed.error.issues, req.nextUrl.pathname);
+      return badRequest(message, parsed.error.issues, path);
     }
+
     const identifier = parsed.data.username ?? parsed.data.email ?? '';
     if (!identifier) {
-      return badRequest('Username atau email wajib diisi', null, req.nextUrl.pathname);
+      return badRequest('Username atau email wajib diisi', null, path);
     }
+
     const result = await login(identifier, parsed.data.password);
+
     const response = successResponse({
       status: 200,
       message: 'Login berhasil',
@@ -30,52 +41,54 @@ export async function POST(req: NextRequest) {
         refresh_token: result.refreshToken,
         user: result.user,
       },
-      path: req.nextUrl.pathname,
+      path,
     });
-    const isSecure = process.env.NODE_ENV === 'production';
 
+    // Cookie dipakai browser / Postman. App mobile memakai token dari body.
     response.cookies.set('access_token', result.accessToken, {
       httpOnly: true,
-      secure: isSecure,
-      sameSite: isSecure ? 'none' : 'lax', // 'none' wajib untuk cross-site production
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax', // 'none' wajib untuk cross-site production
       path: '/',
       maxAge: 60 * 15,
     });
 
     response.cookies.set('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: isSecure,
-      sameSite: isSecure ? 'none' : 'lax',
-      path: '/api/v1/auth', // persempit dari '/' — cuma terkirim ke endpoint auth
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/api/v1/auth', // hanya terkirim ke endpoint auth
       maxAge: 60 * 60 * 24 * 7,
     });
+
     return response;
-    
   } catch (error) {
     console.error('LOGIN_ERROR', error);
+
     if (error instanceof Error && error.message === 'INVALID_CREDENTIALS') {
-      return unauthorized('Username atau password salah', null, req.url);
+      return unauthorized('Username atau password salah', null, path);
     }
+
     if (error instanceof Error && error.message === 'ACCOUNT_INACTIVE') {
       return errorResponse({
         status: 403,
         code: 'FORBIDDEN',
         message: 'Akun Anda tidak aktif',
-        path: req.nextUrl.pathname,
+        path,
       });
     }
+
     return errorResponse({
       status: 500,
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Terjadi kesalahan saat login',
-      details:
-        error instanceof Error
-          ? {
-              message: error.message,
-              name: error.name,
-            }
+      // Detail error internal hanya ditampilkan saat development
+      details: isProduction
+        ? undefined
+        : error instanceof Error
+          ? { message: error.message, name: error.name }
           : error,
-      path: req.nextUrl.pathname,
+      path,
     });
   }
 }
